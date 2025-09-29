@@ -1,0 +1,39 @@
+# Build folders
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+/Makefile
+/*.cmake
+/*.a
+/*.so
+/*.so.*
+
+# IDE settings (VSCodium / VSCode)
+.vscode/
+.vscode-oss/
+*.code-workspace
+
+# Compiler output
+*.o
+*.obj
+*.exe
+*.out
+*.dll
+*.pdb
+*.mod
+*.log
+
+# Generated files
+compile_commands.json
+cmake_install.cmake
+
+# Vulkan shaders (keep .vert/.frag, ignore compiled SPIR-V)
+*.spv
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Backup / temp files
+*~
+*.swp

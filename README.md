@@ -2,11 +2,6 @@
 
 # VulkanInProgress 🎮🔥
 
-[![C++](https://img.shields.io/badge/C++-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![Vulkan](https://img.shields.io/badge/Vulkan-1.3-red.svg)](https://www.vulkan.org/)
-[![CMake](https://img.shields.io/badge/CMake-Build_System-green.svg)](https://cmake.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
 Welcome to **VulkanInProgress** — my journey into building a custom **graphics engine from scratch** using the Vulkan API.
 
 This repository is not just a project — it’s a **learning process**. My goal is to explore modern graphics programming step by step, documenting my progress as I go.

@@ -1,8 +1,8 @@
 ---
 
-# VulkanInProgress 🎮🔥
+# EngineProgramming -> Vulkan
 
-Welcome to **VulkanInProgress** — my journey into building a custom **graphics engine from scratch** using the Vulkan API.
+Welcome to my journey into building a custom **graphics engine from scratch** using the Vulkan API.
 
 This repository is not just a project — it’s a **learning process**. My goal is to explore modern graphics programming step by step, documenting my progress as I go.
 

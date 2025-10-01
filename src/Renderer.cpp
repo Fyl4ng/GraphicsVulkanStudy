@@ -3,8 +3,11 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <iterator>
 #include <ostream>
+#include <set>
 #include <stdexcept>
+#include <sys/types.h>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -53,11 +56,14 @@ bool Renderer::checkValidationLayerSupport() {
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-    for (const char* layerName : validationLayers) {
+    for (const char* layerName : validationLayers) 
+    {
         bool layerFound = false;
 
-        for (const auto& layer : availableLayers) {
-            if (strcmp(layerName, layer.layerName) == 0) {
+        for (const auto& layer : availableLayers) 
+        {
+            if (strcmp(layerName, layer.layerName) == 0) 
+            {
                 layerFound = true;
                 break;
             }
@@ -84,7 +90,7 @@ void Renderer::BeginFrame()
 
     frameStarted = true;
 
-    std::cout << "Begin Frame" << std::endl;
+    //std::cout << "Begin Frame" << std::endl;
 }
 /*
     Frame Logic not much for now just temp stuff
@@ -98,7 +104,7 @@ void Renderer::EndFrame()
 
     frameStarted = false;
 
-    std::cout << "End Frame" << std::endl;
+    //std::cout << "End Frame" << std::endl;
 }
 
 
@@ -160,6 +166,53 @@ void Renderer::CreateSurface(Window& window)
     }
 }
 
+void Renderer::CreateLogicalDevice()
+{
+    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+
+    std::set<uint32_t> uniqueFamiles = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+    float priority = 1.f;
+    std::vector<VkDeviceQueueCreateInfo> queueInfos;
+    queueInfos.reserve(uniqueFamiles.size());
+
+    for(uint32_t family : uniqueFamiles)
+    {
+        VkDeviceQueueCreateInfo queue{};
+        queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queue.queueFamilyIndex = family;
+        queue.queueCount = 1;
+        queue.pQueuePriorities = &priority;
+        queueInfos.push_back(queue);
+    }
+
+
+    VkPhysicalDeviceFeatures features{};
+
+    VkDeviceCreateInfo create{};
+    create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    create.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size());
+    create.pQueueCreateInfos = queueInfos.data();
+    create.pEnabledFeatures = &features;
+
+    //Enabling swapchain extensino
+    create.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    create.ppEnabledExtensionNames = deviceExtensions.data();
+
+    //Validation time
+    create.enabledLayerCount = 0;
+
+    if (vkCreateDevice(physicalDevice, &create, nullptr, &device) != VK_SUCCESS) 
+    {
+        throw std::runtime_error("Failed to create logical device =/ ");
+    }
+
+    // Get the queues
+    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    vkGetDeviceQueue(device, indices.presentFamily.value(),  0, &presentQueue);
+
+}
+
 /*
     Picking GPU 
 */
@@ -176,34 +229,29 @@ void Renderer::PickPhysicalDevice()
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-    //Picking first one for now will prob change this in future
-    physicalDevice = devices[0];
-
-}
-/*
-    Creating a vulkan device and queue(TEMP FOR NOW)
-*/
-void Renderer::CreateLogicalDevice()
-{
-    float queuePriority = 1.f;
-
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = 0; //Fake
-    queueCreateInfo.queueCount =1;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = 1;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
-
-    if(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+    for(auto device: devices)
     {
-        throw std::runtime_error("Failed to create logical device =( ");
+        if(IsDeviceApproved(device))
+        {
+            physicalDevice = device;
+
+            VkPhysicalDeviceProperties props{};
+            vkGetPhysicalDeviceProperties(device, &props);
+
+            //Debug
+            std::cout << "GPU Being Used -> " << props.deviceName << std::endl;
+            return;
+        }
     }
 
-    vkGetDeviceQueue(device, 0, 0, &graphicsQueue);
+    throw std::runtime_error("No suitable GPU was found =( ");
+
+    // std::vector<VkPhysicalDevice> devices(deviceCount);
+    // vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+    // //Picking first one for now will prob change this in future
+    // physicalDevice = devices[0];
+
 }
 
 void Renderer::CreateSwapchain(Window& /*window*/)
@@ -215,3 +263,90 @@ void Renderer::CreateCommandBuffers()
 {
     commandBuffers.clear(); //PLACEHOLDER FOR NOW
 }
+
+QueueFamilyIndices Renderer::FindQueueFamilies(VkPhysicalDevice device)
+{
+    QueueFamilyIndices indices;
+
+    uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+    std::vector<VkQueueFamilyProperties> props(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, props.data());
+    
+    //Finding Grpahics and present support
+    for(uint32_t i = 0; i < count; ++i)
+    {
+        //HAndle of VK_QUEUE_GRAPHICS_BIT
+        if(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            indices.graphicsFamily = i;
+        }
+
+        //This will present to our surface
+        VkBool32 bPresentSupport = VK_FALSE;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &bPresentSupport);
+
+        if(bPresentSupport)
+        {
+            indices.presentFamily = i;
+        }
+
+        if(indices.IsComplete())
+        {
+            break;
+        }
+    }
+
+    return indices;
+
+}
+
+bool Renderer::CheckDeviceExtension(VkPhysicalDevice device)
+{
+    uint32_t extensionCount = 0;
+
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+    std::vector<VkExtensionProperties> available(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,  available.data());
+
+    for (const char* required : deviceExtensions) 
+    {
+        bool bFound = false;
+        for (const auto& e : available) 
+        {
+            if (strcmp(required, e.extensionName) == 0) 
+            {
+                bFound = true;
+                break;
+            }
+        }
+        if (!bFound) 
+        {
+            std::cerr << "Missing device extension: " << required << std::endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Renderer::IsDeviceApproved(VkPhysicalDevice device)
+{
+    QueueFamilyIndices indices = FindQueueFamilies(device);
+
+    //Checking if queue ended
+    if(!indices.IsComplete())
+    {
+        return false;
+    }
+
+    //Has the extension ?
+    if(!CheckDeviceExtension(device))
+    {
+        return false;
+    }
+
+    return true;
+}
+
